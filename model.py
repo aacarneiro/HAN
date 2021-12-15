@@ -145,6 +145,13 @@ class LayerAttention(nn.Module):
 
 
 class UpsampleBlock(nn.Module):
+    """Upsample block using a pixel shuffler. Only implemented for scale factor of 2 and 3.
+
+    Args:
+        in_channels (int): Number of input channels.
+        scale_factor (int): a scale factor of 2 increases the number of pixels by 4, doubling the height and width. (scale_factor=3 results in 9x more pixels).
+    """
+
     def __init__(self, in_channels, scale_factor):
         super().__init__()
         # in_c-4, H, W ->> in_c, H*2, W*2
@@ -157,7 +164,21 @@ class UpsampleBlock(nn.Module):
 
 
 class HAN(nn.Module):
-    def __init__(self, num_resgroups, num_rcab, height=48, width=48, in_channels=3, layer_channels=64, kernel_conv=3, scale_factor=2):
+    def __init__(self, num_resgroups, num_rcab, height, width, in_channels=3, scale_factor=2, layer_channels=64, kernel_conv=3):
+        """[summary]
+
+        Args:
+            num_resgroups (int): Total number of residual groups (formed by a row of RCABs with a long skip connection).
+            num_rcab (int): Number of Residual Channel Attention Blocks in each Residual Group.
+            height (int, optional): Height of the input image (low resolution).
+            width (int, optional): Width of the input image (low resolution).
+            in_channels (int, optional): Number of color channels in the input image. Defaults to 3 (RGB).
+            scale_factor (int, optional): A scale factor of 2 increases the output resolution by a factor of 2 in each 
+                                          dimension (width and height), resultingin 4x more pixels. 
+                                          Factor of 3 results in 9x more pixels. Defaults to 2.
+            layer_channels (int, optional): Number o channels inside the network. Tensors have the size "C x W x H". Defaults to 64.
+            kernel_conv (int, optional): Kernel size for the first and last convolution layers (pos-input, pre-output). All other convolution layers use kernel size of 3. Defaults to 3.
+        """
         super().__init__()
         # The model is only valid for scale factors 2 and 3.
         assert(scale_factor == 2 or scale_factor == 3)
@@ -187,7 +208,7 @@ class HAN(nn.Module):
         # print(f"First Conv: {x.shape}")
         rg_input = x
         # Store the output of each resgroup to be used as
-        # input to the LayerAttention module. 
+        # input to the LayerAttention module.
         feature_group = []
         for n in range(self.num_resgroups):
             rg_input = self.RGs[n](rg_input)
