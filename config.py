@@ -1,18 +1,14 @@
-from configparser import Interpolation
-import torch
-from PIL import Image
 import pathlib
 import numpy as np
 
 LOAD_MODEL = True
 SAVE_MODEL = True
-# CHECKPOINT = "checkpoint/train.zip"
 DEVICE = "cuda"
-LEARNING_RATE = 1e-5
-NUM_EPOCHS = 100
+LEARNING_RATE = 5e-5
+NUM_EPOCHS = 40
 # If saving is activated, saves the model every SAVE_EVERY epochs
 SAVE_EVERY = 3
-BATCH_SIZE = 16
+BATCH_SIZE = 18
 NUM_WORKERS = 0
 HIGH_RES = 96
 SCALE_FACTOR = 3
