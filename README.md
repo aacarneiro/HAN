@@ -1,7 +1,6 @@
-# Hollistic Attention Network - Super Resolution
----
+# Hollistic Attention Network
 
-Implementation of the HAN-like network architecture proposed in https://arxiv.org/abs/2008.08767. To speed up training/evaluation, the network was built with fewer residual attention blocks (64 instead of 200 residual channel attention blocks).
+Implementation of the HAN-like network architecture proposed in https://arxiv.org/abs/2008.08767 to create super resolution images. To speed up training/evaluation, the network was built with fewer residual attention blocks (64 instead of 200 residual channel attention blocks).
 
 ## Training
 
@@ -24,7 +23,7 @@ The peak signal to noise ratio (PSNR) and structural similarity (SSIM) were calc
 |PSNR|28.8774|26.4848|24.0927|27.0797|27.2324|
 |SSIM|0.8749|0.7916|0.7274|0.7545|0.8878|
 
-##### High resolution (left) vs Super resolution (right) using the x2 model.
+#### High resolution (left) vs Super resolution (right) using the x2 model.
 ![Super Resolution x2](SR_x2.png)
 
 
