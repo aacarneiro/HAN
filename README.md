@@ -21,8 +21,7 @@ x3
 |PSNR|0|26.2185|24.9875|28.1571|25.1775|
 |SSIM|0|0.7846|0.7578|0.7941|0.8451|
 
-![Super Resolution x2](SR_x2.jpg)
-
+![Super Resolution x2](SR_x2.png)
 
 
 
