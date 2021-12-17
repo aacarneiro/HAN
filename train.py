@@ -1,9 +1,10 @@
 from torchsummary import summary
 import torch
+from torchvision.models.vgg import VGG
 import config
 from torch import nn
 from torch import optim
-from utils import load_checkpoint, optimizer_to, save_checkpoint, freeze_rcan
+from utils import load_checkpoint, optimizer_to, save_checkpoint
 from torch.utils.data import DataLoader
 from model import HAN
 from dataset import MyImageFolder
@@ -11,6 +12,7 @@ import os
 import pathlib
 from tqdm import tqdm
 from time import time
+from loss import VGGLoss
 
 torch.backends.cudnn.benchmark = True
 
@@ -31,6 +33,8 @@ def train(loader, gen, opt, loss, accum_grad=1, grad_clipping=True):
     time_load = 0
     time_grad = 0
     total_loss = 0
+    mse = loss[0]
+    vgg_loss = loss[1]
 
     # Only runs the optimizer step after accum_iter iterations
     accum_iter = accum_grad
@@ -40,16 +44,16 @@ def train(loader, gen, opt, loss, accum_grad=1, grad_clipping=True):
         low_res = low_res.to(config.DEVICE)
         # t1 = time()
         generated = gen(low_res)
-        image_loss = loss(generated, high_res)
-        # t2 = time()
+        image_loss = mse(generated, high_res) + 1e3 * \
+            vgg_loss(generated, high_res)
+        # print(1e3 * vgg_loss(generated, high_res).item())
+        # print(mse(generated, high_res).item())
         image_loss.backward()
-        # t3 = time()
         if ((idx + 1) % accum_iter == 0) or (idx + 1 == len(loader)):
             nn.utils.clip_grad.clip_grad_norm_(gen.parameters(), 10)
             opt.step()
             opt.zero_grad()
-        # t4 = time()
-        total_loss += image_loss
+        total_loss += image_loss.item()
         # print(total_loss.detach().cpu().numpy(), generated.detach().cpu().numpy(
         # ).min(), generated.detach().cpu().numpy().max())
 
@@ -78,7 +82,7 @@ loader = DataLoader(dataset,
 gen = HAN(num_resgroups=config.N_GROUPS, num_rcab=config.N_RCAB, height=config.LOW_RES,
           width=config.LOW_RES, in_channels=3, layer_channels=config.N_CHANNELS, scale_factor=config.SCALE_FACTOR)
 gen = gen.to(config.DEVICE)
-# freeze_rcan(gen)
+# gen.freeze_rcan(gen)
 # opt = optim.Adam(gen.parameters(), lr=config.LEARNING_RATE,
 #                  betas=(0.9, 0.999))
 opt = optim.SGD(gen.parameters(), lr=config.LEARNING_RATE, momentum=0.1)
@@ -86,6 +90,7 @@ opt = optim.SGD(gen.parameters(), lr=config.LEARNING_RATE, momentum=0.1)
 # optimizer_to(opt, config.DEVICE)
 mse = nn.MSELoss(reduction="sum").to(config.DEVICE)
 l1loss = nn.L1Loss(reduction="sum").to(config.DEVICE)
+vgg_loss = VGGLoss().to(config.DEVICE)
 
 # summary(gen, (3, 48, 48), device="cuda")
 
@@ -96,7 +101,7 @@ if config.LOAD_MODEL:
                     config.LEARNING_RATE)
 
 for epoch in range(1, config.NUM_EPOCHS+1):
-    train(loader, gen, opt, mse, accum_grad=2, grad_clipping=True)
+    train(loader, gen, opt, [mse, vgg_loss], accum_grad=4, grad_clipping=True)
 
     if (epoch % config.SAVE_EVERY == 0 or epoch == config.NUM_EPOCHS) and config.SAVE_MODEL:
         save_checkpoint(gen, opt, epoch, filename=config.CHECKPOINT)

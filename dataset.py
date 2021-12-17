@@ -21,29 +21,6 @@ class MyImageFolder(Dataset):
         image = augmentations.both_transforms(image=image)["image"]
         high_res = augmentations.highres_transform(image=image)["image"]
         low_res = augmentations.lowres_transform(image=image)["image"]
-        # low_res = low_res.permute(2, 0, 1)
-        # high_res = high_res.permute(2, 0, 1)
-        return low_res, high_res
-
-
-class MyImageFolderRAM(Dataset):
-    def __init__(self, path):
-        super().__init__()
-        self.data = []
-        paths = glob(path)
-        for p in paths:
-            self.data.append((np.array(Image.open(p))-127.5)/255)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        image = self.data[index]
-        image = augmentations.both_transforms(image=image)["image"]
-        high_res = augmentations.highres_transform(image=image)["image"]
-        low_res = augmentations.lowres_transform(image=image)["image"]
-        # low_res = low_res.permute(2, 0, 1)
-        # high_res = high_res.permute(2, 0, 1)
         return low_res, high_res
 
 

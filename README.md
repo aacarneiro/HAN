@@ -6,6 +6,28 @@ Implementation of the HAN-like network architecture proposed in https://arxiv.or
 
 The network was trained using 96x96 patches from the DIV2K dataset. During training, the input is downsampled by the scale factor, the fed in as a lower resolution image. To virtually increase the size of the dataset, the images are randomly horizontally flipped and rotated.
 
+## File structure
+
+#### model.py
+
+Defines the model and its building blocks.
+
+#### augmentations.py
+
+Transformations used to augment and process the input data. 
+
+#### dataset.py
+
+The torch dataset class that returns a low resolution (source) and high resolution (target) image.
+
+#### config.py
+
+Defines project configurations: image resolution, size of the network, training images path, whether to save/load the model, batch size, scale factor.
+
+#### utils.py
+
+Functions to load and save the model, and to upscale an image or all the images in a folder.
+
 ## Results
 The peak signal to noise ratio (PSNR) and structural similarity (SSIM) were calculated using only the luminance channel of the [YCbCr color space](https://en.wikipedia.org/wiki/YCbCr).
 

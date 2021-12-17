@@ -1,5 +1,6 @@
 from PIL import Image
 import matplotlib.pyplot as plt
+from torchvision.transforms.functional import scale
 import config
 import numpy as np
 import config
@@ -14,7 +15,7 @@ import pathlib
 import cv2
 from torchvision import transforms
 import augmentations
-import math
+from utils import upscale_image
 
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
@@ -22,6 +23,18 @@ from skimage.metrics import peak_signal_noise_ratio as psnr
 
 def recreate_image(image, gen, scale_factor):
     original_image = image
+    shape = image.shape
+    # If the image dimensions cannot be divided by a
+    rest_1 = shape[1] % scale_factor
+    rest_2 = shape[2] % scale_factor
+    # If the image size is not divisible by the scale factor, pad the tensor with zeros.
+    if rest_1 != 0:
+        new_col = torch.zeros((3, rest_1, shape[2]))
+        image = torch.cat([image, new_col], dim=1)
+    if rest_2 != 0:
+        new_row = torch.zeros((3, shape[1]+rest_1, rest_2))
+        image = torch.cat([image, new_row], dim=2)
+
     patch_size_lr = config.LOW_RES
     channels, width, height = image.shape
     low_width = width//scale_factor
@@ -88,6 +101,12 @@ def recreate_image(image, gen, scale_factor):
 
             hr_patch = hr_patches[i, :, left_lr:right_lr, top_lr:bottom_lr]
             hr_image[:, left:right, top:bottom] = hr_patch
+
+    # Recovers the original image size by removing the extra rows added in the beginning:
+    if rest_1 > 0:
+        hr_image = hr_image[:, 0:-rest_1, :]
+    if rest_2 > 0:
+        hr_image = hr_image[:, :, 0:-rest_2]
     # im, ax = plt.subplots(1, 2, sharex=True, sharey=True)
     # ax[0].imshow(hr_image.permute(1, 2, 0).numpy())
     # ax[1].imshow(original_image.permute(1, 2, 0).numpy())
@@ -104,7 +123,7 @@ datasets = ["set5", "set14", "Urban100", "Manga109", "BSDS100"]
 dataset_paths = [
     f"{home}/.keras/datasets/set5/test/{d}/*.png" for d in datasets]
 
-files = list(glob(dataset_paths[1]))
+# files = list(glob(dataset_paths[1]))
 
 # Load the model
 gen = HAN(num_resgroups=config.N_GROUPS, num_rcab=config.N_RCAB, height=config.LOW_RES,

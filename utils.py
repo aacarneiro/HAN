@@ -1,9 +1,13 @@
 import torch
-import config
-from torchvision import transforms
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.transform import resize
+from glob import glob
+import cv2
+from PIL import Image
+
+import config
+import augmentations
 
 
 def save_checkpoint(model, optimizer, epoch, filename="my_checkpoint.pth.tar"):
@@ -21,7 +25,7 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
     checkpoint = torch.load(checkpoint_file, map_location=config.DEVICE)
     # checkpoint["state_dict"].pop("final.bias", None)
     model.load_state_dict(checkpoint["state_dict"], strict=False)
-    optimizer.load_state_dict(checkpoint["optimizer"])
+    # optimizer.load_state_dict(checkpoint["optimizer"])
 
     # If we don't do this then it will just have learning rate of old checkpoint
     # and it will lead to many hours of debugging
@@ -29,14 +33,14 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
     #     param_group["lr"] = lr
 
 
-def upscale_image(image, gen):
+def upscale_image(image, gen, scale_factor):
     """Do not rescale the input
     """
     original_image = image
     patch_size_lr = config.LOW_RES
     channels, low_width, low_height = image.shape
-    width = 2*low_width
-    height = 2*low_height
+    width = scale_factor*low_width
+    height = scale_factor*low_height
     hr_image = torch.empty(channels, width, height)
     # image = transforms.Resize((low_width, low_height))(image)
     # image = augmentations.highres_transform(image=image)["image"]
@@ -85,37 +89,46 @@ def upscale_image(image, gen):
                 p_top = padding
             if (y + patch_size_lr != low_height):
                 p_bottom = padding
-            left = 2*x + p_left
-            right = 2 * (x + patch_size_lr) - p_right
-            top = 2*y + p_top
-            bottom = 2 * (y+patch_size_lr) - p_bottom
+            left = scale_factor*x + p_left
+            right = scale_factor * (x + patch_size_lr) - p_right
+            top = scale_factor*y + p_top
+            bottom = scale_factor * (y+patch_size_lr) - p_bottom
 
             left_lr = p_left
-            right_lr = 2*patch_size_lr - p_right
+            right_lr = scale_factor*patch_size_lr - p_right
             top_lr = p_top
-            bottom_lr = 2*patch_size_lr - p_bottom
+            bottom_lr = scale_factor*patch_size_lr - p_bottom
 
             hr_patch = hr_patches[i, :, left_lr:right_lr, top_lr:bottom_lr]
             hr_image[:, left:right, top:bottom] = hr_patch
+    hr = hr_image.permute(1, 2, 0).numpy()
+    lr = original_image.permute(1, 2, 0).numpy()
+    lr = cv2.resize(lr, (width, height))
+
+    # Plot the images
     im, ax = plt.subplots(1, 2, sharex=True, sharey=True)
-    ax[0].imshow(hr_image.permute(1, 2, 0).numpy())
-    ax[1].imshow(original_image.permute(1, 2, 0).numpy())
+    ax[0].imshow(lr)
+    ax[1].imshow(hr)
     plt.show()
     return hr_image
 
 
-def plot2images(high_res, super_res):
-    """Plots the high resolution and the super resolution images side by side, for comparison. 
-
-    Args:
-        high_res ([nd.array]): High resolution image with the same shape as the super resolution image.
-        super_res ([nd.array]): High resolution image with the same shape as the super resolution image.
-    """
-    fig, ax = plt.subplots(1, 2, sharex=True, sharey=True)
-    high_res = resize(high_res, super_res.shape[0:2])
-    ax[0].imshow(high_res, aspect="equal")
-    ax[1].imshow(super_res, aspect="equal")
-    plt.show()
+def upscale_folder(model, path="image/*.png"):
+    paths = glob(path)
+    for p in paths:
+        image = Image.open(p)
+        image = np.array(image)
+        if len(image.shape) == 2:
+            bw = True
+            image = np.stack([image, image, image], axis=2)
+        image = augmentations.highres_transform(image=image)["image"]
+        high_res = upscale_image(image, model, config.SCALE_FACTOR)
+        image = image.permute(1, 2, 0).numpy()
+        high_res = high_res.permute(1, 2, 0).numpy()
+        high_res = np.clip(high_res, 0, 1)*255
+        # Converts to BGR before saving, otherwise openCV switches the blue and red channel
+        high_res = cv2.cvtColor(high_res, cv2.COLOR_RGB2BGR)
+        hr = cv2.imwrite(f"{p[:-3]}_sr.png", high_res)
 
 
 def optimizer_to(optim, device):
@@ -131,10 +144,3 @@ def optimizer_to(optim, device):
                     subparam.data = subparam.data.to(device)
                     if subparam._grad is not None:
                         subparam._grad.data = subparam._grad.data.to(device)
-
-
-def freeze_rcan(model):
-    for p in model.RGs.parameters():
-        p.requires_grad = False
-    for p in model.conv_initial.parameters():
-        p.requires_grad = False

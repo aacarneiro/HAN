@@ -218,6 +218,7 @@ class HAN(nn.Module):
         self.conv_initial = nn.Conv2d(in_channels=in_channels, out_channels=layer_channels,
                                       kernel_size=kernel_conv, stride=1, padding="same", bias=True)
         self.bn_HAN = nn.BatchNorm2d(layer_channels)
+        # Modules list helps with accessing the parameters (for counting, freezing, ..)
         self.RGs = nn.ModuleList([ResidualGroup(n_rcabs=num_rcab,
                                                 layer_channels=layer_channels) for _ in range(num_resgroups)])
         self.channel_spatial_attention = ChannelSpatialAttention(
@@ -264,18 +265,33 @@ class HAN(nn.Module):
         out = self.conv_final(out)
         return out
 
+    def freeze_rcan(self):
+        """RCAN is the network without Layer Attention and Channel Attention modules. 
+        It's a simplified network that's trained first, then the other layers are added 
+        and trained with the RCAN layers frozen.
+
+        To alternate between RCAN and HAN, uncomment/comment the forward function:
+        HAN: out = csam + lam + x
+        RCAN: out = channel_attention_input + x
+        """
+        for p in self.RGs.parameters():
+            p.requires_grad = False
+        for p in self.conv_initial.parameters():
+            p.requires_grad = False
+
 
 def test():
-    low_resolution = 48  # 96x96 -> 48x48 2x Upscaling
-    x = torch.randn((5, 3, low_resolution, low_resolution))
-    y = torch.randn((5, 16, low_resolution, low_resolution))
-    model = HAN(num_resgroups=config.N_GROUPS, num_rcab=config.N_RCAB, height=config.LOW_RES,
-                width=config.LOW_RES, in_channels=3, layer_channels=config.N_CHANNELS)
-    output = model(x)
-    print(f"Output shape: {output.shape}")
-    summary(model, (3, 48, 48), device="cpu")
+    # low_resolution = 48  # 96x96 -> 48x48 2x Upscaling
+    # x = torch.randn((5, 3, low_resolution, low_resolution))
+    # y = torch.randn((5, 16, low_resolution, low_resolution))
+    # model = HAN(num_resgroups=config.N_GROUPS, num_rcab=config.N_RCAB, height=config.LOW_RES,
+    #             width=config.LOW_RES, in_channels=3, layer_channels=config.N_CHANNELS, scale_factor=config.SCALE_FACTOR)
+    # output = model(x)
+    # print(f"Output shape: {output.shape}")
+    model = HAN(num_resgroups=10, num_rcab=20, height=config.LOW_RES,
+                width=config.LOW_RES, in_channels=3, layer_channels=64, scale_factor=config.SCALE_FACTOR)
+    summary(model, (3, config.LOW_RES, config.LOW_RES), device="cpu")
 
 
 if __name__ == "__main__":
-    from torchsummary import summary
     test()
