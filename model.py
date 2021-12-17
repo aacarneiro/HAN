@@ -6,6 +6,17 @@ import config
 
 
 class ConvRelu(nn.Module):
+    """Applies a 2d convolution followed by a ReLU layer then another convolution. 
+    Tensor shape is not changed.
+
+    Args:
+        in_channels (int): [description]
+        out_channels (int): [description]
+        kernel_size (int): [description]
+        stride (int): [description]
+        padding (int or string): [description]
+    """
+
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels,
@@ -24,6 +35,15 @@ class ConvRelu(nn.Module):
 
 
 class ChannelAttention(nn.Module):
+    """The Channal Attention module applies a reduction in the number of channels, then multiplies the resulting channels with the input.
+
+    Args:
+        layer_channels (int): Number of channels inside the NN.
+
+        reduction (int): Downscales the layer_channels by this factor (then upscales again, the output has the same shape as the input).
+                        E.g.: with reduction=16: (W,H,64) -> (1,64) -> (1,4) -> (1,64)*(inputs) -> (W,H,64)
+    """
+
     def __init__(self, layer_channels, reduction=16):
         super().__init__()
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
@@ -43,6 +63,17 @@ class ChannelAttention(nn.Module):
     def forward(self, x):
         channels = self.channel_attention(x)
         out = torch.mul(channels, x)
+        # Alternative
+        # print(x.shape)
+        # out = self.global_pooling(x)
+        # print(f"Channel attention, pooling: {out.shape}")
+        # out = self.relu(self.conv_down(out))
+        # print(f"Channel attention, conv down: {out.shape}")
+        # out = self.sig(self.conv_up(out))
+        # print(f"Channel attention, conv up: {out.shape}")
+        # out = torch.mul(out, x)
+        # print(f"Channel attention, output: {out.shape}")
+
         # print("Channel Attention Layer: ")
         # print(f"Channels: {channels.shape}. x: {x.shape}")
         # print(f"Out: {out.shape}")
@@ -149,7 +180,7 @@ class UpsampleBlock(nn.Module):
 
     Args:
         in_channels (int): Number of input channels.
-        scale_factor (int): a scale factor of 2 increases the number of pixels by 4, doubling the height and width. (scale_factor=3 results in 9x more pixels).
+        scale_factor (int): a scale factor of 2 increases the number of pixels by 4, doubling the height and width. (scale_factor=3 results in 9x more pixels). 
     """
 
     def __init__(self, in_channels, scale_factor):
